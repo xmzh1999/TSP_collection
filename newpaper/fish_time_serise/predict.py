@@ -3,6 +3,7 @@ alabama_university_time_series = [13055, 13563, 13867, 14696, 15460, 15311, 1560
                                   15163, 15984, 16859, 18150, 18970, 19328, 19337,
                                   18876]
 
+
 def fetch_fuzzy_class(val, u_v):
     """
     模糊化，输入val真实值，添加模糊值
@@ -18,7 +19,9 @@ def fetch_fuzzy_class(val, u_v):
 
 def lunyumid(val, u_v):
     """
-    返回论域中点
+    获取论域区间中点
+    :param val: 真实值 {'actual_data': val, 'fuzzy_class': class)}
+    :param u_v: 划分论域 列表形式 [(),()]
     :return:
     """
     for u_min, u_max in u_v:
@@ -29,9 +32,10 @@ def lunyumid(val, u_v):
 def fetch_fuzzy_relations(val1, val2, fuzzy_relation_vector):
     """
     建立模糊逻辑关系
-    :param val: 模糊类别
+    :param val1: 历史t-2真实值 {'actual_data': value1, 'fuzzy_class': class1)}
+    :param val2: 历史t-1真实值 {'actual_data': value2, 'fuzzy_class': class2)}
     :param fuzzy_relation_vector: 2阶模糊关系序列
-    :return: 返回满足（val，*）的序列
+    :return: 返回满足（value1，value2）的序列
     """
     r_list = []
     for i in range(len(fuzzy_relation_vector) - 1):
