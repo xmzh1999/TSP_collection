@@ -29,28 +29,28 @@ def lunyumid(val, u_v):
             return 0.5 * (u_min + u_max)
 
 
-def fetch_fuzzy_relations(val1, val2, fuzzy_relation_vector):
+def fetch_fuzzy_relations(val1, val2, historical_relations_fuzzy):
     """
     建立模糊逻辑关系
-    :param val1: 历史t-2真实值 {'actual_data': value1, 'fuzzy_class': class1)}
-    :param val2: 历史t-1真实值 {'actual_data': value2, 'fuzzy_class': class2)}
-    :param fuzzy_relation_vector: 2阶模糊关系序列
-    :return: 返回满足（value1，value2）的序列
+    :param val1: 历史t-2模糊值 class1
+    :param val2: 历史t-1模糊值 'fuzzy_class': class2
+    :param historical_relations_fuzzy: 2阶模糊关系序列及对应值 [(At-2, At-1, At, At_actual_data)]
+    :return: 返回满足（class1，class2）的序列
     """
     r_list = []
-    for i in range(len(fuzzy_relation_vector) - 1):
-        if fuzzy_relation_vector[i][0] == val1 and fuzzy_relation_vector[i+1][0] == val2:
+    for i in range(len(historical_relations_fuzzy) - 1):
+        if historical_relations_fuzzy[i][0] == val1 and historical_relations_fuzzy[i][1] == val2:
             # print(fuzzy_relation_vector[i])
-            r_list.append(fuzzy_relation_vector[i])
+            r_list.append(historical_relations_fuzzy[i])
     return r_list
 
 
 def mv_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vectorized):
     """
-    mv预测方法 f(t) = (w*m(t1) + m(t2) + ……  + m(t_lamda)) / (w + t_lamda - 1)
+    mv预测方法 f(t) = (w*m(t1) + m(t2) + ……  + m(t_lamda)) / (w + t_lamda - 1) 前lamda年对应模糊区间中点
     :return:
     """
-    w = 1.5
+    w = 1.5  # 太大了就差不多是t-1的值了
     mv_forecasted = []
     for j in range(1, len(historical_data_fuzzied) - 1):
         val1 = historical_data_fuzzied[j - 1]
@@ -62,6 +62,8 @@ def mv_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vectorized
         # val:  0  r_list:  [(0, 0, 0,data), (0, 0, 1,data)]
         mv_forecasted.append((w * lunyumid(val2.get('actual_data'), u_vectorized) +
                               lunyumid(val1.get('actual_data'), u_vectorized)) / (w + 1))
+        # historical_data_fuzzied[j + 1]["mv_forecasted"] = ((w * lunyumid(val2.get('actual_data'), u_vectorized) +
+        #                                                     lunyumid(val1.get('actual_data'), u_vectorized)) / (w + 1))
     return mv_forecasted
 
 
@@ -79,21 +81,22 @@ def EBN_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vectorize
         val2 = historical_data_fuzzied[j]  # 所有的模糊逻辑 {'actual_data': 13055, 'fuzzy_class': 0}
         _r_list = fetch_fuzzy_relations(val1.get('fuzzy_class'), val2.get('fuzzy_class'), historical_relations_fuzzy)
         _sum = 0.0
-        if len(_r_list):
-            for i in range(len(_r_list)):  # 遍历所有模糊关系组
-                _sum += (u_vectorized[_r_list[i][-2]][0] + u_vectorized[_r_list[i][-2]][1]) / 4  # 所在模糊区间的中点的一半
-                sub = u_vectorized[_r_list[i][-2]]
-                val3 = _r_list[i][-1]
-                sub = (sub[0], sub[0] + (sub[1] - sub[0]) / 3, sub[0] + (sub[1] - sub[0]) * 2 / 3, sub[1])  # 三等分的模糊区间
+        # if len(_r_list):
+        for i in range(len(_r_list)):  # 遍历所有模糊关系组
+            _sum += (u_vectorized[_r_list[i][-2]][0] + u_vectorized[_r_list[i][-2]][1]) / 4  # 所在模糊区间的中点的一半
+            sub = u_vectorized[_r_list[i][-2]]
+            val3 = _r_list[i][-1]
+            sub = (sub[0], sub[0] + (sub[1] - sub[0]) / 3, sub[0] + (sub[1] - sub[0]) * 2 / 3, sub[1])  # 三等分的模糊区间
 
-                for k in range(len(sub) - 1):
-                    if sub[k] <= val3 <= sub[k+1]:
-                        _sum += (sub[k] + sub[k+1]) / 4
+            for k in range(len(sub) - 1):
+                if sub[k] <= val3 <= sub[k + 1]:
+                    _sum += (sub[k] + sub[k + 1]) / 4
 
-            _sum /= len(_r_list)
-        else:
-            _sum = 0.5 * (val1.get('actual_data') + val2.get('actual_data'))
+        _sum /= len(_r_list)
+        # else:
+        #     _sum = 0.5 * (val1.get('actual_data') + val2.get('actual_data'))
         EBN_forecasted.append(_sum)
+        # historical_data_fuzzied[j + 1]["EBN_forecasted"] = _sum
     return EBN_forecasted
 
 
@@ -102,7 +105,6 @@ def fuzzyset_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vect
 
     :return:
     """
-    w = 100.5
     fuzzyset_forecasted = []
     for j in range(1, len(historical_data_fuzzied) - 1):
         val1 = historical_data_fuzzied[j - 1]
@@ -114,9 +116,11 @@ def fuzzyset_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vect
                 _sum += (u_vectorized[_r_list[i][2]][0] + u_vectorized[_r_list[i][2]][1]) * 0.5
             _sum /= len(_r_list)
             fuzzyset_forecasted.append(_sum)
+            # historical_data_fuzzied[j + 1]["fuzzyset_forecasted"] = _sum
         else:
             i = val2.get('fuzzy_class')
             fuzzyset_forecasted.append(0.5 * (u_vectorized[i][0] + u_vectorized[i][1]))
+            # historical_data_fuzzied[j + 1]["fuzzyset_forecasted"] = 0.5 * (u_vectorized[i][0] + u_vectorized[i][1])
 
         # val1 = historical_data_fuzzied[j - 1]
         # val2 = historical_data_fuzzied[j - 2].get('actual_data')
@@ -129,7 +133,7 @@ def fuzzyset_predict(historical_data_fuzzied, historical_relations_fuzzy, u_vect
 
 def MSE(target, prediction):
     error = []
-    for i in range(0, len(prediction) - 1):
+    for i in range(0, len(prediction) - 0):
         error.append(target[i] - prediction[i])
     # print("errors: ", error)
     squaredError = []
@@ -137,6 +141,7 @@ def MSE(target, prediction):
     for val in error:
         squaredError.append(val * val)  # target-prediction之差平方
         absError.append(abs(val))  # 误差绝对值
+    print(len(error))
 
     # print("Square Error: ", squaredError)
     # print("Absolute Value of Error: ", absError)
